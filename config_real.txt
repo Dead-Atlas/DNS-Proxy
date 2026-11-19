@@ -1,0 +1,14 @@
+upstream_ip=8.8.8.8
+upstream_port=53
+upstream_timeout_sec=3
+real_dns_enabled=true
+
+sinkhole_ip=0.0.0.0
+proxy_ip=1.1.1.1
+local_ttl=60
+
+ad_list_file=ad_list_real.txt
+sanction_list_file=sanction_list_real.txt
+cache_enabled=true
+entries_max_cache=500
+log_file=log_real.txt
