@@ -2,6 +2,7 @@ import os
 import re
 import sys
 import socket
+import time
 from dataclasses import dataclass
 from collections import namedtuple
 
@@ -260,3 +261,43 @@ class DnsProxy:
             "UPSTREAM": 0,
             "ERRORS": 0
         }
+    @staticmethod
+    def _remaining(entry, now):
+        _, ttl, stored_at = entry
+        return ttl - int(now - stored_at)
+
+    def _purge_expired(self):
+        now = time.monotonic()
+
+        for name in [
+            name for name, entry in self.cache.items()
+            if self._remaining(entry, now) < 1
+        ]:
+            del self.cache[name]
+
+    def _cache_get(self, name):
+        entry = self.cache.get(name)
+
+        if entry is None:
+            return None
+
+        remaining = self._remaining(entry, time.monotonic())
+
+        if remaining < 1:
+            del self.cache[name]
+            return None
+
+        return entry[0], remaining
+
+    def _cache_put(self, name, ip, ttl):
+        self.cache.pop(name, None)
+
+        limit = self.cfg.entries_max_cache
+
+        if limit > 0 and len(self.cache) >= limit:
+            self._purge_expired()
+
+            while len(self.cache) >= limit:
+                del self.cache[next(iter(self.cache))]
+
+        self.cache[name] = (ip, ttl, time.monotonic())
