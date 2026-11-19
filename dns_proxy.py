@@ -3,6 +3,8 @@ import re
 import sys
 import socket
 from dataclasses import dataclass
+from collections import namedtuple
+
 
 _DOMAIN_CHARS = re.compile(r"[A-Za-z0-9.\-]+")
 _IPV4 = re.compile(r"\d{1,3}(\.\d{1,3}){3}", re.ASCII)
@@ -241,3 +243,20 @@ def query_text_upstream(name, cfg):
         sock.close()
 
     return parse_text_reply(data)
+
+Result = namedtuple("Result", ["domain", "source", "status", "ip", "ttl"])
+
+class DnsProxy:
+    def __init__(self, cfg, ad_list, sanction_list):
+        self.cfg = cfg
+        self.ad_list = ad_list
+        self.sanction_list = sanction_list
+        self.cache = {}
+        self.stats = {
+            "total": 0,
+            "AD_BLOCK": 0,
+            "SANCTION": 0,
+            "CACHE": 0,
+            "UPSTREAM": 0,
+            "ERRORS": 0
+        }
