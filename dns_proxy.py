@@ -383,3 +383,25 @@ class DnsProxy:
             f"SANCTION: {s['SANCTION']} | CACHE: {s['CACHE']} | "
             f"UPSTREAM: {s['UPSTREAM']} | ERRORS: {s['ERRORS']}"
         )
+    def reload_lists(self):
+        try:
+            ads = load_list(self.cfg.ad_list_file)
+            sanctions = load_list(self.cfg.sanction_list_file)
+        except ConfigError as exc:
+            print(f"Reload failed: {exc}")
+            return
+
+        self.ad_list, self.sanction_list = ads, sanctions
+        print("Lists reloaded.")
+
+    def show_cache(self):
+        self._purge_expired()
+
+        if not self.cache:
+            print("Cache is empty.")
+            return
+
+        now = time.monotonic()
+
+        for name, entry in self.cache.items():
+            print(f"{name} | {entry[0]} | {self._remaining(entry, now)}")
