@@ -5,6 +5,7 @@ import socket
 import time
 from dataclasses import dataclass
 from collections import namedtuple
+from datetime import datetime
 
 
 _DOMAIN_CHARS = re.compile(r"[A-Za-z0-9.\-]+")
@@ -344,3 +345,41 @@ class DnsProxy:
             self._cache_put(name, ip, ttl)
 
         return Result(name, "UPSTREAM", status, ip, ttl)
+    def record(self, result):
+        self.stats["total"] += 1
+
+        if result.status in ("INVALID_INPUT", "SERVER_ERROR"):
+            self.stats["ERRORS"] += 1
+        else:
+            self.stats[result.source] += 1
+
+        if self.cfg.log_enabled:
+            stamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+            line = " | ".join([
+                stamp,
+                result.domain,
+                result.source,
+                result.status,
+                fmt(result.ip),
+                fmt(result.ttl)
+            ])
+
+            try:
+                with open(
+                    resolve_path(self.cfg.log_file),
+                    "a",
+                    encoding="utf-8"
+                ) as f:
+                    f.write(line + "\n")
+            except OSError:
+                pass
+
+    def show_stats(self):
+        s = self.stats
+
+        print(
+            f"Total: {s['total']} | AD_BLOCK: {s['AD_BLOCK']} | "
+            f"SANCTION: {s['SANCTION']} | CACHE: {s['CACHE']} | "
+            f"UPSTREAM: {s['UPSTREAM']} | ERRORS: {s['ERRORS']}"
+        )
