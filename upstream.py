@@ -10,7 +10,6 @@ NOT_FOUND_REPLY = "NOT_FOUND"
 
 def main():
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-
     try:
         sock.bind((HOST, PORT))
     except OSError as exc:
@@ -20,7 +19,6 @@ def main():
     print(f"Upstream mock listening on {HOST}:{PORT} (Ctrl+C to stop)", flush=True)
 
     counter = 0
-
     while True:
         try:
             data, addr = sock.recvfrom(4096)
@@ -31,16 +29,12 @@ def main():
             continue
 
         parts = data.decode("utf-8", "replace").split()
-
         if len(parts) == 2 and parts[0] == "QUERY":
             domain = parts[1]
             counter += 1
-
             name = domain.lower()
             name = name[:-1] if name.endswith(".") else name
-
             reply = NOT_FOUND_REPLY if name == MISSING_DOMAIN else OK_REPLY
-
             print(f"Request #{counter}: {domain} -> {reply}", flush=True)
         else:
             reply = "ERROR malformed request"
