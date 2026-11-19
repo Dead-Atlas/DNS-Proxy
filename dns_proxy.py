@@ -1,6 +1,7 @@
 import os
 import re
 import sys
+import socket
 from dataclasses import dataclass
 
 _DOMAIN_CHARS = re.compile(r"[A-Za-z0-9.\-]+")
@@ -200,3 +201,43 @@ def load_list(file_value):
         entries.add(normalize(line))
 
     return entries
+
+
+
+ERROR_REPLY = ("SERVER_ERROR", None, None)
+NOT_FOUND_REPLY = ("NOT_FOUND", None, None)
+
+
+def parse_text_reply(data):
+    try:
+        parts = data.decode("utf-8").split()
+    except UnicodeDecodeError:
+        return ERROR_REPLY
+
+    if parts == ["NOT_FOUND"]:
+        return NOT_FOUND_REPLY
+
+    if len(parts) == 3 and parts[0] == "OK" and is_ipv4(parts[1]) and _UINT.fullmatch(parts[2]):
+        return ("OK", parts[1], int(parts[2]))
+
+    return ERROR_REPLY
+
+
+def query_text_upstream(name, cfg):
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+
+    try:
+        sock.settimeout(cfg.upstream_timeout_sec)
+        sock.sendto(
+            f"QUERY {name}".encode("ascii"),
+            (cfg.upstream_ip, cfg.upstream_port)
+        )
+        data, _ = sock.recvfrom(4096)
+
+    except OSError:
+        return ERROR_REPLY
+
+    finally:
+        sock.close()
+
+    return parse_text_reply(data)
