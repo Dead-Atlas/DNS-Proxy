@@ -301,3 +301,46 @@ class DnsProxy:
                 del self.cache[next(iter(self.cache))]
 
         self.cache[name] = (ip, ttl, time.monotonic())
+    def _query_upstream(self, name):
+        try:
+            if self.cfg.real_dns_enabled:
+                return query_real_dns(name, self.cfg)
+
+            return query_text_upstream(name, self.cfg)
+
+        except Exception:
+            return ERROR_REPLY
+
+    def resolve(self, raw_line):
+        text = raw_line.strip()
+
+        if not is_valid_domain(text):
+            return Result(
+                text if text else "(empty)",
+                "NONE",
+                "INVALID_INPUT",
+                None,
+                None
+            )
+
+        name = normalize(text)
+        cfg = self.cfg
+
+        if matches(name, self.ad_list):
+            return Result(name, "AD_BLOCK", "OK", cfg.sinkhole_ip, cfg.local_ttl)
+
+        if matches(name, self.sanction_list):
+            return Result(name, "SANCTION", "OK", cfg.proxy_ip, cfg.local_ttl)
+
+        if cfg.cache_enabled:
+            hit = self._cache_get(name)
+
+            if hit:
+                return Result(name, "CACHE", "OK", hit[0], hit[1])
+
+        status, ip, ttl = self._query_upstream(name)
+
+        if status == "OK" and cfg.cache_enabled and ttl > 0:
+            self._cache_put(name, ip, ttl)
+
+        return Result(name, "UPSTREAM", status, ip, ttl)
